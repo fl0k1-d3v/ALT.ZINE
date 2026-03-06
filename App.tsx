@@ -10,6 +10,7 @@ import {
   TextInput,
   FlatList,
   BackHandler,
+  Keyboard,
 } from 'react-native';
 
 type Note = {
@@ -58,49 +59,48 @@ const GRID_DATA = [
 function App(): React.JSX.Element {
   const [currentPage, setCurrentPage] = useState<PageType | 'HOME'>('HOME');
   const [notes, setNotes] = useState<Note[]>([]);
-  const [currentNoteText, setCurrentNoteText] = useState('');
-  const [editingNoteId, setEditingNoteId] = useState<string | null>(null);
   const [selectedNoteIndex, setSelectedNoteIndex] = useState(0);
 
+  const [editor, setEditor] = useState({
+    id: null as string | null,
+    text: '',
+    initialText: '',
+  });
+
   const textInputRef = useRef<TextInput>(null);
+  const stateRef = useRef({ notes, currentPage, selectedNoteIndex, editor });
 
-  // Sync refs for the listener
-  const notesRef = useRef(notes);
-  notesRef.current = notes;
-  const currentNoteTextRef = useRef(currentNoteText);
-  currentNoteTextRef.current = currentNoteText;
-  const editingNoteIdRef = useRef(editingNoteId);
-  editingNoteIdRef.current = editingNoteId;
-  const currentPageRef = useRef(currentPage);
-  currentPageRef.current = currentPage;
-  const selectedNoteIndexRef = useRef(selectedNoteIndex);
-  selectedNoteIndexRef.current = selectedNoteIndex;
+  useEffect(() => {
+    stateRef.current = { notes, currentPage, selectedNoteIndex, editor };
+  });
 
-  const navigateTo = useCallback((page: PageType | 'HOME') => {
-    setCurrentPage(page);
+  const saveNoteInternal = useCallback(() => {
+    const { text, id, initialText } = stateRef.current.editor;
+
+    // Kill the keyboard immediately
+    textInputRef.current?.blur();
+    Keyboard.dismiss();
+
+    if (text.trim() !== '') {
+        if (!id || text !== initialText) {
+            setNotes(prev => {
+                const now = Date.now();
+                if (id) {
+                    const other = prev.filter(n => n.id !== id);
+                    return [{ id, text, updatedAt: now }, ...other];
+                } else {
+                    return [{ id: now.toString(), text, updatedAt: now }, ...prev];
+                }
+            });
+        }
+    }
+
+    setEditor({ id: null, text: '', initialText: '' });
   }, []);
 
-  const saveNoteInternal = () => {
-    const text = currentNoteTextRef.current;
-    const id = editingNoteIdRef.current;
-    if (text.trim() !== '') {
-        setNotes(prev => {
-            if (id) {
-                const other = prev.filter(n => n.id !== id);
-                return [{ id, text, updatedAt: Date.now() }, ...other];
-            } else {
-                return [{ id: Date.now().toString(), text, updatedAt: Date.now() }, ...prev];
-            }
-        });
-    }
-    setCurrentNoteText('');
-    setEditingNoteId(null);
-  };
-
   const goBack = useCallback(() => {
-    const activePage = currentPageRef.current;
+    const { currentPage: activePage } = stateRef.current;
 
-    // Save logic if exiting editor
     if (activePage === 'New Note' || activePage === 'Edit Note') {
         saveNoteInternal();
     }
@@ -110,35 +110,38 @@ function App(): React.JSX.Element {
       return true;
     }
 
-    // If on HOME, let the app exit
     BackHandler.exitApp();
     return true;
-  }, []);
+  }, [saveNoteInternal]);
 
   const deleteNote = useCallback((id: string) => {
-    setNotes(prev => prev.filter(n => n.id !== id));
-    if (selectedNoteIndexRef.current > 0) {
-      setSelectedNoteIndex(prev => prev - 1);
-    }
+    setNotes(prev => {
+        const newNotes = prev.filter(n => n.id !== id);
+        setSelectedNoteIndex(idx => Math.min(idx, Math.max(0, newNotes.length - 1)));
+        return newNotes;
+    });
   }, []);
 
   const handleLastNote = useCallback(() => {
-    const currentNotes = notesRef.current;
+    const { notes: currentNotes } = stateRef.current;
     if (currentNotes.length > 0) {
       const last = currentNotes[0];
-      setCurrentNoteText(last.text);
-      setEditingNoteId(last.id);
-      navigateTo('Edit Note');
+      setEditor({ id: last.id, text: last.text, initialText: last.text });
+      setCurrentPage('Edit Note');
     } else {
-      navigateTo('New Note');
+      setEditor({ id: null, text: '', initialText: '' });
+      setCurrentPage('New Note');
     }
-  }, [navigateTo]);
+  }, []);
 
+  // Use a focus effect that cleans up focus
   useEffect(() => {
     if (currentPage === 'New Note' || currentPage === 'Edit Note') {
-      setTimeout(() => textInputRef.current?.focus(), 150);
-    } else if (currentPage === 'Notes List') {
-      setSelectedNoteIndex(0);
+      const timer = setTimeout(() => textInputRef.current?.focus(), 150);
+      return () => clearTimeout(timer);
+    } else {
+      // When entering HOME or LIST, force keyboard down
+      Keyboard.dismiss();
     }
   }, [currentPage]);
 
@@ -146,7 +149,7 @@ function App(): React.JSX.Element {
     if (Platform.OS !== 'android') return;
 
     const subscription = DeviceEventEmitter.addListener('onKeyDown', (keyName: string) => {
-      const activePage = currentPageRef.current;
+      const { currentPage: activePage, selectedNoteIndex: currentIndex, notes: currentNotes } = stateRef.current;
 
       if (keyName === 'KEYCODE_BACK') {
         goBack();
@@ -159,25 +162,21 @@ function App(): React.JSX.Element {
           return;
         }
         if (KEY_MAP[keyName]) {
-          navigateTo(KEY_MAP[keyName] as PageType);
+          setCurrentPage(KEY_MAP[keyName] as PageType);
           return;
         }
       }
 
       if (activePage === 'Notes List') {
-        const currentNotes = notesRef.current;
-        const currentIndex = selectedNoteIndexRef.current;
-
         if (keyName === 'KEYCODE_DPAD_DOWN') {
           if (currentIndex < currentNotes.length - 1) setSelectedNoteIndex(prev => prev + 1);
         } else if (keyName === 'KEYCODE_DPAD_UP') {
           if (currentIndex > 0) setSelectedNoteIndex(prev => prev - 1);
-        } else if (keyName === 'KEYCODE_DPAD_RIGHT' || keyName === 'KEYCODE_ENTER') {
+        } else if (keyName === 'KEYCODE_DPAD_RIGHT' || keyName === 'KEYCODE_ENTER' || keyName === 'KEYCODE_NUMPAD_ENTER') {
           if (currentNotes.length > 0) {
             const note = currentNotes[currentIndex];
-            setCurrentNoteText(note.text);
-            setEditingNoteId(note.id);
-            navigateTo('Edit Note');
+            setEditor({ id: note.id, text: note.text, initialText: note.text });
+            setCurrentPage('Edit Note');
           }
         } else if (keyName === 'KEYCODE_DPAD_LEFT') {
           if (currentNotes.length > 0) deleteNote(currentNotes[currentIndex].id);
@@ -186,7 +185,7 @@ function App(): React.JSX.Element {
     });
 
     return () => subscription.remove();
-  }, [navigateTo, goBack, deleteNote, handleLastNote]);
+  }, [goBack, deleteNote, handleLastNote]);
 
   const renderContent = () => {
     if (currentPage === 'New Note' || currentPage === 'Edit Note') {
@@ -198,8 +197,9 @@ function App(): React.JSX.Element {
             multiline
             placeholder="Type your note..."
             placeholderTextColor="#333"
-            value={currentNoteText}
-            onChangeText={setCurrentNoteText}
+            value={editor.text}
+            onChangeText={(t) => setEditor(prev => ({ ...prev, text: t }))}
+            blurOnSubmit={false}
           />
           <Text style={styles.editorHint}>Press BACK to save and return Home</Text>
         </View>
@@ -253,7 +253,7 @@ function App(): React.JSX.Element {
               style={styles.gridItem}
               onPress={() => {
                 if (item.id === '6') handleLastNote();
-                else if (item.page) navigateTo(item.page as PageType);
+                else if (item.page) setCurrentPage(item.page as PageType);
               }}
             >
               <Text style={styles.gridId}>{item.id}</Text>

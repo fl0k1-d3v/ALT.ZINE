@@ -21,7 +21,6 @@ class MainActivity : ReactActivity() {
       val keyCode = event.keyCode
       val keyName = KeyEvent.keyCodeToString(keyCode)
 
-      // Only emit event to JS on ACTION_DOWN to avoid double-triggers
       if (event.action == KeyEvent.ACTION_DOWN) {
           Log.d("ALTZINE", "Key Pressed: $keyName")
           try {
@@ -36,14 +35,11 @@ class MainActivity : ReactActivity() {
           }
       }
 
-      // Consume BOTH ACTION_DOWN and ACTION_UP for these keys to fully block system behavior
-      // This specifically prevents the BACK key from exiting the app prematurely
-      if (keyName.startsWith("KEYCODE_DPAD") || 
-          keyName.startsWith("KEYCODE_NUMPAD") ||
-          (keyCode >= KeyEvent.KEYCODE_0 && keyCode <= KeyEvent.KEYCODE_9) ||
-          keyCode == KeyEvent.KEYCODE_DEL ||
-          keyCode == KeyEvent.KEYCODE_ENTER ||
-          keyCode == KeyEvent.KEYCODE_BACK) {
+      // We ONLY consume the BACK key to prevent the app from closing.
+      // All other keys (DPAD, ENTER, DEL, NUMBERS) must be passed to the 
+      // system so that the TextInput and other UI elements can handle them 
+      // for cursor movement, typing, and deletion.
+      if (keyCode == KeyEvent.KEYCODE_BACK) {
           return true
       }
 
