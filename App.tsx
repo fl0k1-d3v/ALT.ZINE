@@ -17,6 +17,12 @@ import {
 
 const { FilePickerModule } = NativeModules;
 
+// Set default font family globally
+Text.defaultProps = Text.defaultProps || {};
+Text.defaultProps.style = { fontFamily: 'VT323-Regular' };
+TextInput.defaultProps = TextInput.defaultProps || {};
+TextInput.defaultProps.style = { fontFamily: 'VT323-Regular' };
+
 type Note = { id: string; text: string; updatedAt: number; };
 type Book = { id: string; title: string; content: string; segments: string[]; currentSegment: number; totalSegments: number; lastRead: number; };
 
@@ -305,16 +311,16 @@ export default function App() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: '#000' },
   header: { paddingTop: 50, paddingBottom: 20, alignItems: 'center', borderBottomWidth: 1, borderBottomColor: '#333' },
-  title: { color: '#FFF', fontSize: 28, fontWeight: '900', letterSpacing: 6 },
+  title: { color: '#FFF', fontSize: 28, letterSpacing: 6 },
   main: { flex: 1 },
   gridWrapper: { flex: 1, justifyContent: 'center', padding: 10 },
   gridContainer: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between' },
   gridItem: { width: '31%', aspectRatio: 1, backgroundColor: '#111', marginBottom: '3%', borderRadius: 4, justifyContent: 'center', alignItems: 'center', borderWidth: 1, borderColor: '#222' },
-  gridId: { color: '#444', fontSize: 10, position: 'absolute', top: 5, left: 8, fontWeight: 'bold' },
-  gridLabel: { color: '#0F0', fontSize: 13, fontWeight: 'bold', textTransform: 'uppercase' },
+  gridId: { color: '#444', fontSize: 10, position: 'absolute', top: 5, left: 8 },
+  gridLabel: { color: '#0F0', fontSize: 13, textTransform: 'uppercase' },
   pageContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  pageText: { color: '#FFF', fontSize: 32, fontWeight: 'bold' },
-  creditsText: { color: '#0F0', fontSize: 24, fontWeight: '900', letterSpacing: 2 },
+  pageText: { color: '#FFF', fontSize: 32 },
+  creditsText: { color: '#0F0', fontSize: 24, letterSpacing: 2 },
   backHint: { color: '#444', fontSize: 10, padding: 15, textAlign: 'center', letterSpacing: 1, textTransform: 'uppercase' },
   editorContainer: { flex: 1, backgroundColor: '#000' },
   textInput: { flex: 1, color: '#FFF', fontSize: 18, padding: 20, textAlignVertical: 'top' },
@@ -323,10 +329,10 @@ const styles = StyleSheet.create({
   listItem: { flexDirection: 'row', alignItems: 'center', padding: 15, borderBottomWidth: 1, borderBottomColor: '#111' },
   selectedItem: { backgroundColor: '#111', borderColor: '#0F0', borderBottomWidth: 1 },
   listText: { flex: 1, color: '#FFF', fontSize: 16, paddingHorizontal: 10 },
-  progressText: { color: '#0F0', fontSize: 10, fontWeight: 'bold' },
+  progressText: { color: '#0F0', fontSize: 10 },
   icon: { color: '#222', fontSize: 18, paddingHorizontal: 15 },
   divider: { width: 1, height: 20, backgroundColor: '#222' },
-  emptyText: { color: '#222', textAlign: 'center', marginTop: 100, fontSize: 16, fontWeight: 'bold' },
+  emptyText: { color: '#222', textAlign: 'center', marginTop: 100, fontSize: 16 },
   readerContainer: { flex: 1, backgroundColor: '#000' },
   segmentWrapper: { flex: 1, justifyContent: 'flex-start', padding: 25, paddingTop: 40 },
   segmentText: { color: '#CCC', fontSize: 16, lineHeight: 24, textAlign: 'left' },
